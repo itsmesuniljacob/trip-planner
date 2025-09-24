@@ -2,9 +2,21 @@ import { Button } from "@/components/ui/button";
 import { Plane, Menu, User } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/components/ui/sonner";
 
-const Header = () => {
+interface HeaderProps {
+  onOpenAuth?: () => void;
+}
+
+const Header = ({ onOpenAuth }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    toast.success("Signed out");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -33,12 +45,24 @@ const Header = () => {
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-3">
-          <Button variant="ghost" size="sm">
-            Sign In
-          </Button>
-          <Button variant="hero" size="sm">
-            Get Started
-          </Button>
+          {user ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <User className="h-4 w-4" />
+                {user.displayName || user.email}
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>Sign out</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={onOpenAuth}>
+                Sign In
+              </Button>
+              <Button variant="hero" size="sm" onClick={onOpenAuth}>
+                Get Started
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -66,12 +90,20 @@ const Header = () => {
               About
             </Link>
             <div className="flex flex-col space-y-2 pt-2">
-              <Button variant="ghost" size="sm" className="w-full justify-start">
-                Sign In
-              </Button>
-              <Button variant="hero" size="sm" className="w-full">
-                Get Started
-              </Button>
+              {user ? (
+                <Button variant="outline" size="sm" className="w-full" onClick={handleSignOut}>
+                  Sign out
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" className="w-full justify-start" onClick={onOpenAuth}>
+                    Sign In
+                  </Button>
+                  <Button variant="hero" size="sm" className="w-full" onClick={onOpenAuth}>
+                    Get Started
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

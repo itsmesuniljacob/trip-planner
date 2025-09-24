@@ -1,4 +1,6 @@
 import Header from "@/components/layout/Header";
+import { useState } from "react";
+import AuthModal from "@/components/auth/AuthModal";
 import Footer from "@/components/layout/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 
 const Features = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const features = [
     {
       icon: Brain,
@@ -76,7 +79,7 @@ const Features = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onOpenAuth={() => setIsAuthModalOpen(true)} />
       
       {/* Hero Section */}
       <section className="py-20 gradient-sky">
@@ -197,6 +200,7 @@ const Features = () => {
       </section>
 
       <Footer />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };

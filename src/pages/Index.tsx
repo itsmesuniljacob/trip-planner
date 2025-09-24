@@ -26,7 +26,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onOpenAuth={() => setIsAuthModalOpen(true)} />
       
       {/* Hero Section */}
       <section className="relative py-20 overflow-hidden">

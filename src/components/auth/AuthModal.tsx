@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Lock, User, Chrome, Apple, Facebook } from "lucide-react";
+import { getFirebaseAuth, getGoogleProvider, getFacebookProvider, getAppleProvider } from "@/lib/firebase";
+import { signInWithPopup } from "firebase/auth";
+import { toast } from "@/components/ui/sonner";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -25,6 +28,42 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
     onClose();
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const auth = getFirebaseAuth();
+      const provider = getGoogleProvider();
+      await signInWithPopup(auth, provider);
+      toast.success("Signed in with Google");
+      onClose();
+    } catch (error) {
+      console.error("Google sign-in failed", error);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    try {
+      const auth = getFirebaseAuth();
+      const provider = getFacebookProvider();
+      await signInWithPopup(auth, provider);
+      toast.success("Signed in with Facebook");
+      onClose();
+    } catch (error) {
+      console.error("Facebook sign-in failed", error);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      const auth = getFirebaseAuth();
+      const provider = getAppleProvider();
+      await signInWithPopup(auth, provider);
+      toast.success("Signed in with Apple");
+      onClose();
+    } catch (error) {
+      console.error("Apple sign-in failed", error);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
@@ -37,15 +76,15 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
         <div className="space-y-4">
           {/* Social Login Buttons */}
           <div className="space-y-3">
-            <Button variant="outline" className="w-full" onClick={onClose}>
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
               <Chrome className="mr-2 h-4 w-4" />
               Continue with Google
             </Button>
-            <Button variant="outline" className="w-full" onClick={onClose}>
+            <Button variant="outline" className="w-full" onClick={handleAppleSignIn}>
               <Apple className="mr-2 h-4 w-4" />
               Continue with Apple
             </Button>
-            <Button variant="outline" className="w-full" onClick={onClose}>
+            <Button variant="outline" className="w-full" onClick={handleFacebookSignIn}>
               <Facebook className="mr-2 h-4 w-4" />
               Continue with Facebook
             </Button>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Header from "@/components/layout/Header";
+import AuthModal from "@/components/auth/AuthModal";
 import Footer from "@/components/layout/Footer";
 import { 
   Plus, 
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 const Dashboard = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [trips] = useState([
     {
       id: 1,
@@ -74,7 +76,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header onOpenAuth={() => setIsAuthModalOpen(true)} />
       
       <main className="container py-8">
         {/* Header */}
@@ -222,6 +224,7 @@ const Dashboard = () => {
       </main>
 
       <Footer />
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 };
