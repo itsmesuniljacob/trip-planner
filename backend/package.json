@@ -1,0 +1,23 @@
+{
+  "name": "trip-planner-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal backend for Trip Planner MVP vertical slice",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon --quiet src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.2.1",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
+
