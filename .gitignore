@@ -146,4 +146,6 @@ dist
 .kiro
 .cursor
 .taskmaster
+.DS_Store
+
 scripts
