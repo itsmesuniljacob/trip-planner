@@ -149,3 +149,5 @@ dist
 .DS_Store
 
 scripts
+.vscode
+.DS_Store
