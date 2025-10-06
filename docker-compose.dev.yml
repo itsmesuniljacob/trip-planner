@@ -1,4 +1,25 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trip-planner-postgres-dev
+    environment:
+      - POSTGRES_DB=trip_planner_dev
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d trip_planner_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - trip-planner-network
+
   backend:
     build:
       context: ./backend
@@ -9,11 +30,17 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/trip_planner_dev?schema=public
     volumes:
       - ./backend/src:/app/src
       - ./backend/package.json:/app/package.json
       - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/prisma:/app/prisma
+      - ./backend/.env:/app/.env
     command: npm run dev
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - trip-planner-network
@@ -46,3 +73,6 @@ services:
 networks:
   trip-planner-network:
     driver: bridge
+
+volumes:
+  postgres_dev_data:

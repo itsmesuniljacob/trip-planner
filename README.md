@@ -25,6 +25,7 @@ A full-stack application for planning group trips with AI-powered recommendation
 ### Backend
 - **Node.js** with Express.js
 - **TypeScript** for type safety
+- **PostgreSQL** with Prisma ORM
 - **Jest** for testing
 - **ESLint + Prettier** for code quality
 
@@ -34,30 +35,48 @@ A full-stack application for planning group trips with AI-powered recommendation
 - Docker and Docker Compose
 - OR Node.js (v20 or higher) and npm for local development
 
-## 🐳 Docker Setup (Recommended for Prototyping)
+## 🐳 Docker Setup (Recommended)
 
-### Production Mode
-Run the complete application with one command:
+### Quick Start
+
+**Development Mode** (recommended):
 ```bash
-docker-compose up --build
+# One command to set up everything
+./scripts/quick-start.sh
 ```
 
-This will:
-- Build and start both frontend and backend
-- Frontend available at `http://localhost`
-- Backend API available at `http://localhost/api`
-- Includes nginx reverse proxy and health checks
-
-### Development Mode
-For development with hot reload:
+**Production Mode**:
 ```bash
-docker-compose -f docker-compose.dev.yml up --build
+# Set up database and run migrations
+./scripts/docker-db-setup.sh prod
+
+# Start all services
+docker-compose up -d
 ```
 
-This will:
-- Frontend with hot reload at `http://localhost:5173`
-- Backend with hot reload at `http://localhost:3001`
-- Volume mounts for live code changes
+**Alternative Development Setup**:
+```bash
+# Manual setup with more control
+./scripts/docker-db-setup.sh dev
+docker-compose -f docker-compose.dev.yml up
+```
+
+### What's Included
+- **PostgreSQL Database**: Persistent data storage with health checks
+- **Backend API**: Node.js/Express with Prisma ORM
+- **Frontend**: React with Vite (development mode only)
+- **Database Migrations**: Automatic schema setup and sample data
+
+### Access Points
+- **Development**:
+  - Frontend: http://localhost:5173
+  - Backend API: http://localhost:3001
+  - Database: localhost:5433 (postgres/password)
+  
+- **Production**:
+  - Frontend: http://localhost:80
+  - Backend API: http://localhost:3001
+  - Database: localhost:5432 (postgres/password)
 
 ### Docker Commands
 ```bash
@@ -73,6 +92,23 @@ docker-compose up --build --force-recreate
 # Clean up (remove containers, networks, volumes)
 docker-compose down -v --remove-orphans
 ```
+
+### Database Management
+```bash
+# Run database migrations
+docker-compose -f docker-compose.dev.yml exec backend npm run db:migrate:dev
+
+# Seed database with sample data
+docker-compose -f docker-compose.dev.yml exec backend npm run db:seed
+
+# Open Prisma Studio (database GUI)
+docker-compose -f docker-compose.dev.yml exec backend npm run db:studio
+
+# Reset database (⚠️ deletes all data)
+docker-compose -f docker-compose.dev.yml exec backend npm run db:reset
+```
+
+For detailed Docker setup instructions, see [DOCKER.md](./DOCKER.md).
 
 ## 💻 Local Development (Alternative)
 
@@ -145,14 +181,39 @@ npm run format
 
 The backend provides the following API endpoints:
 
-- `GET /health` - Health check
+### Core Endpoints
+- `GET /health` - Health check with database status
+- `GET /api/trips` - **NEW!** List all trips with pagination
 - `POST /api/trips` - Create a new trip
-- `GET /api/trips/:id` - Get trip details
+- `GET /api/trips/:id` - Get detailed trip information
+- `PUT /api/trips/:id/status` - **NEW!** Update trip status
+- `DELETE /api/trips/:id` - **NEW!** Delete a trip
+- `GET /api/trips/:id/stats` - **NEW!** Get trip statistics
+
+### Trip Data Endpoints
+- `GET /api/trips/:id/recommendations` - Get AI recommendations
+- `GET /api/trips/:id/results` - Get voting results
+
+### Legacy Endpoints (To be implemented)
 - `POST /api/trips/:id/participants` - Add participants
 - `POST /api/trips/:id/preferences` - Set participant preferences
-- `GET /api/trips/:id/recommendations` - Get AI recommendations
 - `POST /api/trips/:id/votes` - Submit votes
-- `GET /api/trips/:id/results` - Get voting results
+
+### Quick API Test
+```bash
+# List all trips
+curl http://localhost:3001/api/trips
+
+# Get specific trip details
+curl http://localhost:3001/api/trips/TRIP_ID
+
+# Create new trip
+curl -X POST http://localhost:3001/api/trips \
+  -H "Content-Type: application/json" \
+  -d '{"name":"My Trip","organizerId":"user-123"}'
+```
+
+For complete API documentation, see [backend/API.md](./backend/API.md).
 
 ## Development Notes
 

@@ -1,141 +1,263 @@
 import { Router } from 'express';
-import { body, param } from 'express-validator';
-import store from './store.js';
+import { body, param, query, validationResult } from 'express-validator';
+import { TripService } from './services/tripService.js';
+import { handlePrismaError } from './lib/database.js';
 
 const router = Router();
 
-// Helpers
-function validationErrorResponse(req, res, next) {
-  const { validationErrors } = req;
-  if (validationErrors && validationErrors.length > 0) {
-    return res.status(400).json({ error: 'Validation failed', details: validationErrors });
+// Validation middleware
+function handleValidationErrors(req, res, next) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: errors.array() 
+    });
   }
-  return next();
+  next();
 }
 
-function validate(rules) {
-  return [
-    ...rules,
-    (req, res, next) => {
-      const errors = [];
-      // Collect errors from express-validator manually (without running a full dependency on validationResult)
-      // Minimalistic approach for MVP; replace with validationResult in future if needed
-      for (const rule of rules) {
-        if (rule.builder && rule.builder.fields) {
-          for (const field of rule.builder.fields) {
-            const value = field in req.body ? req.body[field] : req.params[field] ?? req.query[field];
-            // This is just a stub collector; actual checks are handled by express-validator internally
-            // No-op here
-          }
-        }
-      }
-      req.validationErrors = errors;
-      next();
-    },
-    validationErrorResponse,
-  ];
+// Error handler for async routes
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
 }
 
 // Routes
-router.post(
+
+/**
+ * GET /api/trips - List all trips
+ */
+router.get(
   '/trips',
-  validate([
-    body('name').isString().notEmpty().withMessage('name is required'),
-  ]),
-  (req, res) => {
-    const { name } = req.body;
-    const trip = store.createTrip(name);
-    res.status(201).json(trip);
-  }
+  query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100'),
+  query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be 0 or greater'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const trips = await TripService.getAllTrips();
+      
+      // Apply pagination if requested
+      const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+      
+      let paginatedTrips = trips;
+      if (limit) {
+        paginatedTrips = trips.slice(offset, offset + limit);
+      }
+      
+      res.json({
+        trips: paginatedTrips,
+        total: trips.length,
+        limit: limit || trips.length,
+        offset: offset,
+      });
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
 );
 
+/**
+ * POST /api/trips - Create a new trip
+ */
+router.post(
+  '/trips',
+  body('name').isString().trim().isLength({ min: 1, max: 255 }).withMessage('Name is required and must be 1-255 characters'),
+  body('organizerId').isString().trim().isLength({ min: 1 }).withMessage('Organizer ID is required'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { name, organizerId } = req.body;
+      const trip = await TripService.createTrip(name, organizerId);
+      res.status(201).json(trip);
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
+);
+
+/**
+ * GET /api/trips/:id - Get a specific trip with full details
+ */
 router.get(
   '/trips/:id',
-  validate([
-    param('id').isString().notEmpty().withMessage('id is required'),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const trip = store.getTrip(id);
-    if (!trip) return res.status(404).json({ error: 'Trip not found' });
-    res.json(trip);
-  }
+  param('id').isUUID().withMessage('Trip ID must be a valid UUID'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      const trip = await TripService.getTripById(id);
+      
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      
+      res.json(trip);
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
 );
+
+/**
+ * PUT /api/trips/:id/status - Update trip status
+ */
+router.put(
+  '/trips/:id/status',
+  param('id').isUUID().withMessage('Trip ID must be a valid UUID'),
+  body('status').isIn(['created', 'surveying', 'voting', 'completed', 'cancelled']).withMessage('Invalid status'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      const trip = await TripService.updateTripStatus(id, status);
+      res.json(trip);
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      if (dbError.code === 'RECORD_NOT_FOUND') {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      res.status(500).json({ error: dbError.message });
+    }
+  })
+);
+
+/**
+ * DELETE /api/trips/:id - Delete a trip
+ */
+router.delete(
+  '/trips/:id',
+  param('id').isUUID().withMessage('Trip ID must be a valid UUID'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      await TripService.deleteTrip(id);
+      res.status(204).send();
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      if (dbError.code === 'RECORD_NOT_FOUND') {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      res.status(500).json({ error: dbError.message });
+    }
+  })
+);
+
+/**
+ * GET /api/trips/:id/stats - Get trip statistics
+ */
+router.get(
+  '/trips/:id/stats',
+  param('id').isUUID().withMessage('Trip ID must be a valid UUID'),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      const stats = await TripService.getTripStats(id);
+      
+      if (!stats) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      
+      res.json(stats);
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
+);
+
+// Legacy endpoints (keeping for backward compatibility but will be deprecated)
 
 router.post(
   '/trips/:id/participants',
-  validate([
-    param('id').isString().notEmpty(),
-    body('name').isString().notEmpty(),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
-    const participant = store.addParticipant(id, name);
-    if (!participant) return res.status(404).json({ error: 'Trip not found' });
-    res.status(201).json(participant);
-  }
+  param('id').isUUID(),
+  body('name').isString().notEmpty(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    // TODO: Implement with Prisma - for now return not implemented
+    res.status(501).json({ error: 'Not implemented - use participant service endpoints' });
+  })
 );
 
 router.post(
   '/trips/:id/preferences',
-  validate([
-    param('id').isString().notEmpty(),
-    body('participantId').isString().notEmpty(),
-    body('budget').isString().notEmpty(),
-    body('dates').isString().notEmpty(),
-    body('vibe').isString().notEmpty(),
-    body('destinations').isArray().notEmpty(),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const { participantId, budget, dates, vibe, destinations } = req.body;
-    const result = store.setPreferences(id, participantId, { budget, dates, vibe, destinations });
-    if (!result) return res.status(404).json({ error: 'Trip or participant not found' });
-    res.status(201).json(result);
-  }
+  param('id').isUUID(),
+  body('participantId').isUUID(),
+  body('budget').isString().notEmpty(),
+  body('dates').isString().notEmpty(),
+  body('vibe').isString().notEmpty(),
+  body('destinations').isArray().notEmpty(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    // TODO: Implement with Prisma - for now return not implemented
+    res.status(501).json({ error: 'Not implemented - use survey service endpoints' });
+  })
 );
 
 router.get(
   '/trips/:id/recommendations',
-  validate([
-    param('id').isString().notEmpty(),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const recs = store.listRecommendations(id);
-    if (recs === null) return res.status(404).json({ error: 'Trip not found' });
-    res.json({ recommendations: recs });
-  }
+  param('id').isUUID(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      const trip = await TripService.getTripById(id);
+      
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      
+      res.json({ recommendations: trip.recommendations || [] });
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
 );
 
 router.post(
   '/trips/:id/votes',
-  validate([
-    param('id').isString().notEmpty(),
-    body('participantId').isString().notEmpty(),
-    body('rankings').isArray({ min: 1 }).notEmpty(),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const { participantId, rankings } = req.body;
-    const vote = store.submitVote(id, participantId, rankings);
-    if (!vote) return res.status(404).json({ error: 'Trip or participant not found' });
-    res.status(201).json(vote);
-  }
+  param('id').isUUID(),
+  body('participantId').isUUID(),
+  body('rankings').isArray({ min: 1 }),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    // TODO: Implement with Prisma - for now return not implemented
+    res.status(501).json({ error: 'Not implemented - use voting service endpoints' });
+  })
 );
 
 router.get(
   '/trips/:id/results',
-  validate([
-    param('id').isString().notEmpty(),
-  ]),
-  (req, res) => {
-    const { id } = req.params;
-    const results = store.getResults(id);
-    if (!results) return res.status(404).json({ error: 'Trip not found' });
-    res.json(results);
-  }
+  param('id').isUUID(),
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    try {
+      const { id } = req.params;
+      const trip = await TripService.getTripById(id);
+      
+      if (!trip) {
+        return res.status(404).json({ error: 'Trip not found' });
+      }
+      
+      res.json({ 
+        votes: trip.votes || [], 
+        results: trip.votingResults || [] 
+      });
+    } catch (error) {
+      const dbError = handlePrismaError(error);
+      res.status(500).json({ error: dbError.message });
+    }
+  })
 );
 
 export default router;
