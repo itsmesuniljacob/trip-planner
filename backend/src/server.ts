@@ -2,7 +2,8 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import tripsRouter from './trips.js';
+import { connectDatabase, testDatabaseConnection } from './lib/database.js';
+import tripsRouter from './routes/trips.js';
 
 const app = express();
 
@@ -12,13 +13,18 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Health check
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok' });
+// Health check with database connectivity
+app.get('/health', async (req: Request, res: Response) => {
+  const dbConnected = await testDatabaseConnection();
+  res.json({ 
+    status: 'ok',
+    database: dbConnected ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // API routes
-app.use('/api', tripsRouter);
+app.use('/api/trips', tripsRouter);
 
 // 404 handler
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -32,6 +38,19 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Backend listening on port ${PORT}`);
-});
+
+// Connect to database and start server
+async function startServer() {
+  try {
+    await connectDatabase();
+    app.listen(PORT, () => {
+      console.log(`🚀 Backend listening on port ${PORT}`);
+      console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+startServer();

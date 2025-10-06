@@ -29,6 +29,10 @@ fi
 echo "🔧 Generating Prisma client..."
 npx prisma generate
 
+# Build the TypeScript code
+echo "🔨 Building TypeScript code..."
+npm run build
+
 echo "🎉 Backend setup complete!"
 
 # Execute the main command
