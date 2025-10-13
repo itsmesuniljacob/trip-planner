@@ -16,4 +16,13 @@ export default {
     '!src/models/**/*.d.ts',
     '!src/models/**/__tests__/**',
   ],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  extensionsToTreatAsEsm: ['.ts'],
+  transform: {
+    '^.+\\.ts$': ['ts-jest', {
+      useESM: true,
+    }],
+  },
 };

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Trip Planner API provides endpoints for managing group trips, participants, surveys, recommendations, and voting. The API is built with Express.js and uses PostgreSQL with Prisma ORM for data persistence.
+The Trip Planner API provides comprehensive endpoints for managing group trips, participants, surveys, recommendations, and voting. The API is built with Express.js and uses PostgreSQL with Prisma ORM for data persistence.
 
 ## Base URL
 
@@ -11,7 +11,19 @@ The Trip Planner API provides endpoints for managing group trips, participants, 
 
 ## Authentication
 
-Currently, the API does not require authentication. This will be added in future versions.
+The API uses header-based authentication with the `X-User-Id` header containing a valid UUID. All endpoints except `/health` require authentication.
+
+**Example:**
+```bash
+curl -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  http://localhost:3001/api/trips
+```
+
+## Authorization
+
+- **Trip Organizers**: Can view, modify, and delete their own trips
+- **Participants**: Can view trips they're invited to (future feature)
+- **Public**: No access to trip data
 
 ## Response Format
 
@@ -55,105 +67,91 @@ Check the API and database health status.
 
 ---
 
-### Trips
-
-#### GET /trips
-
-List all trips with pagination support.
-
-**Query Parameters:**
-- `limit` (optional): Number of trips to return (1-100, default: all)
-- `offset` (optional): Number of trips to skip (default: 0)
-
-**Example Request:**
-```bash
-curl "http://localhost:3001/api/trips?limit=10&offset=0"
-```
-
-**Response:**
-```json
-{
-  "trips": [
-    {
-      "id": "uuid-here",
-      "name": "Summer Europe Adventure",
-      "organizerId": "org-123",
-      "status": "created",
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z",
-      "participantCount": 3,
-      "surveyResponseCount": 2,
-      "recommendationCount": 0,
-      "voteCount": 0
-    }
-  ],
-  "total": 1,
-  "limit": 10,
-  "offset": 0
-}
-```
+### Trip Management
 
 #### POST /trips
 
-Create a new trip.
+Create a new trip. The organizer ID is automatically set from the authenticated user.
+
+**Headers:**
+- `X-User-Id`: UUID of the trip organizer (required)
+- `Content-Type`: application/json
 
 **Request Body:**
 ```json
 {
-  "name": "Trip Name",
-  "organizerId": "organizer-id"
+  "name": "Trip to Tokyo"
 }
 ```
 
-**Response:**
+**Response (201):**
 ```json
 {
-  "id": "uuid-here",
-  "name": "Trip Name",
-  "organizerId": "organizer-id",
-  "status": "created",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
+  "success": true,
+  "data": {
+    "id": "uuid-here",
+    "name": "Trip to Tokyo",
+    "organizerId": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "created",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "participants": []
+  },
+  "message": "Trip created successfully"
 }
 ```
 
 #### GET /trips/:id
 
-Get detailed information about a specific trip.
+Get detailed information about a specific trip. Only the trip organizer can access this endpoint.
 
-**Response:**
+**Headers:**
+- `X-User-Id`: UUID of the requesting user (required)
+
+**Response (200):**
 ```json
 {
-  "id": "uuid-here",
-  "name": "Summer Europe Adventure",
-  "organizerId": "org-123",
-  "status": "created",
-  "createdAt": "2024-01-01T00:00:00.000Z",
-  "updatedAt": "2024-01-01T00:00:00.000Z",
-  "participants": [
-    {
-      "id": "participant-uuid",
-      "name": "Alice Johnson",
-      "phoneNumber": "+1234567890",
-      "hasCompletedSurvey": false,
-      "hasVoted": false,
-      "createdAt": "2024-01-01T00:00:00.000Z"
+  "success": true,
+  "data": {
+    "id": "uuid-here",
+    "name": "Trip to Tokyo",
+    "organizerId": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "created",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "participants": [
+      {
+        "id": "participant-uuid",
+        "name": "John Doe",
+        "phoneNumber": "+1234567890",
+        "hasCompletedSurvey": false,
+        "hasVoted": false,
+        "surveyToken": "secure-token-here",
+        "voteToken": "secure-token-here",
+        "createdAt": "2024-01-01T00:00:00.000Z"
+      }
+    ],
+    "stats": {
+      "participantCount": 1,
+      "surveyCompletionCount": 0,
+      "voteCount": 0
     }
-  ],
-  "surveyResponses": [],
-  "recommendations": [],
-  "votes": [],
-  "votingResults": []
+  }
 }
 ```
 
-#### PUT /trips/:id/status
+#### PUT /trips/:id
 
-Update the status of a trip.
+Update trip details. Only the trip organizer can modify trips.
+
+**Headers:**
+- `X-User-Id`: UUID of the trip organizer (required)
+- `Content-Type`: application/json
 
 **Request Body:**
 ```json
 {
+  "name": "Updated Trip Name",
   "status": "surveying"
 }
 ```
@@ -165,36 +163,98 @@ Update the status of a trip.
 - `completed` - Trip planning completed
 - `cancelled` - Trip cancelled
 
-**Response:**
+**Response (200):**
 ```json
 {
-  "id": "uuid-here",
-  "name": "Trip Name",
-  "organizerId": "organizer-id",
-  "status": "surveying",
-  "updatedAt": "2024-01-01T00:00:00.000Z"
+  "success": true,
+  "data": {
+    "id": "uuid-here",
+    "name": "Updated Trip Name",
+    "organizerId": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "surveying",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "participants": []
+  },
+  "message": "Trip updated successfully"
 }
 ```
 
-#### DELETE /trips/:id
+### Participant Management
 
-Delete a trip and all associated data.
+#### POST /trips/:id/participants
 
-**Response:** `204 No Content`
+Add a participant to a trip. Only the trip organizer can add participants.
 
-#### GET /trips/:id/stats
+**Headers:**
+- `X-User-Id`: UUID of the trip organizer (required)
+- `Content-Type`: application/json
 
-Get statistics for a specific trip.
-
-**Response:**
+**Request Body:**
 ```json
 {
-  "participantCount": 3,
-  "surveyResponseCount": 2,
-  "recommendationCount": 5,
-  "voteCount": 2,
-  "completionRate": 66.67,
-  "votingRate": 66.67
+  "name": "John Doe",
+  "phoneNumber": "+1234567890"
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "participant-uuid",
+    "tripId": "trip-uuid",
+    "name": "John Doe",
+    "phoneNumber": "+1234567890",
+    "hasCompletedSurvey": false,
+    "hasVoted": false,
+    "surveyToken": "secure-survey-token",
+    "voteToken": "secure-vote-token",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  "message": "Participant added successfully"
+}
+```
+
+#### GET /trips/:id/participants
+
+Get all participants for a trip. Only the trip organizer can view participants.
+
+**Headers:**
+- `X-User-Id`: UUID of the trip organizer (required)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "participant-uuid",
+      "tripId": "trip-uuid",
+      "name": "John Doe",
+      "phoneNumber": "+1234567890",
+      "hasCompletedSurvey": false,
+      "hasVoted": false,
+      "surveyToken": "secure-survey-token",
+      "voteToken": "secure-vote-token",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### DELETE /trips/:id/participants/:participantId
+
+Remove a participant from a trip. Only the trip organizer can remove participants.
+
+**Headers:**
+- `X-User-Id`: UUID of the trip organizer (required)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "message": "Participant removed successfully"
 }
 ```
 
@@ -267,10 +327,19 @@ cancelled  cancelled  cancelled
 
 ### Validation Rules
 
-- **Trip Name**: 1-255 characters, required
-- **Organizer ID**: Non-empty string, required
-- **Trip ID**: Must be valid UUID
-- **Status**: Must be one of the valid status values
+#### Trip Validation
+- **Trip Name**: 1-255 characters, required, trimmed
+- **Trip Status**: Must be one of: `created`, `surveying`, `voting`, `completed`, `cancelled`
+- **Trip ID**: Must be valid UUID format
+
+#### Participant Validation
+- **Participant Name**: 1-255 characters, required, trimmed
+- **Phone Number**: Must be in international format (e.g., +1234567890), 8-16 digits
+- **Phone Number Uniqueness**: Each phone number can only be added once per trip
+
+#### Authentication Validation
+- **User ID**: Must be valid UUID format in `X-User-Id` header
+- **Authorization**: Only trip organizers can access/modify their trips
 
 ## Rate Limiting
 
@@ -285,6 +354,22 @@ List endpoints support pagination with `limit` and `offset` parameters:
 
 ## Error Examples
 
+### Authentication Error (401)
+```json
+{
+  "error": "Authentication required",
+  "message": "Please provide X-User-Id header for authentication"
+}
+```
+
+### Authorization Error (403)
+```json
+{
+  "error": "Access denied",
+  "message": "You are not authorized to view this trip"
+}
+```
+
 ### Validation Error (400)
 ```json
 {
@@ -292,23 +377,34 @@ List endpoints support pagination with `limit` and `offset` parameters:
   "details": [
     {
       "field": "name",
-      "message": "Name is required and must be 1-255 characters"
+      "message": "Trip name is required",
+      "code": "invalid_type"
     }
   ]
+}
+```
+
+### Duplicate Error (409)
+```json
+{
+  "error": "Duplicate participant",
+  "message": "A participant with this phone number already exists in this trip"
 }
 ```
 
 ### Not Found (404)
 ```json
 {
-  "error": "Trip not found"
+  "error": "Trip not found",
+  "message": "The requested trip does not exist"
 }
 ```
 
 ### Database Error (500)
 ```json
 {
-  "error": "Database connection failed"
+  "error": "Failed to create trip",
+  "message": "Internal server error"
 }
 ```
 
@@ -327,11 +423,28 @@ npm run dev
 ### Testing
 
 ```bash
-# Test all endpoints
-./scripts/test-trips-api.sh
+# Run integration tests
+npm test
 
-# Manual testing
-curl http://localhost:3001/api/trips
+# Manual API testing examples
+# Health check
+curl http://localhost:3001/health
+
+# Create trip
+curl -X POST http://localhost:3001/api/trips \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -d '{"name":"Test Trip"}'
+
+# Get trip details
+curl -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  http://localhost:3001/api/trips/TRIP_ID
+
+# Add participant
+curl -X POST http://localhost:3001/api/trips/TRIP_ID/participants \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -d '{"name":"John Doe","phoneNumber":"+1234567890"}'
 ```
 
 ### Database

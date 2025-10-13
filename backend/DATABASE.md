@@ -62,29 +62,66 @@ This project uses PostgreSQL with Prisma ORM for database management. The databa
 
 ## Database Connection
 
-The database connection is managed through the `src/lib/database.ts` utility:
+The database connection is managed through the `src/lib/database.ts` utility with comprehensive error handling and retry logic:
 
 ```typescript
-import { getPrismaClient, connectDatabase, disconnectDatabase } from './lib/database.js';
+import { getPrismaClient, connectDatabase, disconnectDatabase, withRetry } from './lib/database.js';
 
-// Get Prisma client instance
+// Get Prisma client instance (singleton pattern)
 const prisma = getPrismaClient();
 
 // Connect to database (call once at app startup)
 await connectDatabase();
 
+// Use retry wrapper for database operations
+const result = await withRetry(async () => {
+  return await prisma.trip.findMany();
+});
+
 // Disconnect from database (call at app shutdown)
 await disconnectDatabase();
 ```
 
+### Connection Features
+
+- **Singleton Pattern**: Single Prisma client instance across the application
+- **Automatic Retry**: Failed operations are retried with exponential backoff
+- **Error Mapping**: Prisma errors are mapped to meaningful application errors
+- **Health Checks**: Built-in database connectivity testing
+- **Connection Pooling**: Optimized connection management for production
+
 ## Error Handling
 
-The database utilities include comprehensive error handling:
+The database utilities include comprehensive error handling with the `DatabaseError` class and `handlePrismaError` function:
 
-- **Connection errors**: Automatic retry with exponential backoff
-- **Constraint violations**: Proper error mapping for unique/foreign key violations
-- **Timeout handling**: Configurable timeouts for long-running operations
-- **Graceful degradation**: Health checks and connection testing
+### Error Types
+- **P2002**: Unique constraint violation (e.g., duplicate phone numbers)
+- **P2003**: Foreign key constraint violation
+- **P2025**: Record not found
+- **P1001**: Database connection failed (retryable)
+- **P1008**: Database timeout (retryable)
+
+### Usage Example
+```typescript
+import { handlePrismaError, withRetry } from './lib/database.js';
+
+try {
+  const trip = await withRetry(() => prisma.trip.create({ data: tripData }));
+} catch (error) {
+  const dbError = handlePrismaError(error);
+  if (dbError.isRetryable) {
+    // Handle retryable errors
+  } else {
+    // Handle permanent errors
+  }
+}
+```
+
+### Features
+- **Automatic Retry**: Retryable errors are automatically retried up to 3 times
+- **Error Classification**: Errors are classified as retryable or permanent
+- **Consistent Error Format**: All database errors follow the same structure
+- **Graceful Degradation**: Health checks prevent cascading failures
 
 ## Sample Data
 
@@ -115,15 +152,38 @@ console.log('Record counts:', stats);
 
 ## Environment Configuration
 
-Database connection is configured via the `DATABASE_URL` environment variable in `.env`:
+Database connection is configured via environment variables:
 
+### Development (Docker)
 ```env
-# Using Prisma Postgres (default for development)
-DATABASE_URL="prisma+postgres://localhost:51213/..."
-
-# Alternative: Standard PostgreSQL
-# DATABASE_URL="postgresql://user:password@localhost:5432/trip_planner"
+# .env (for Docker containers)
+DATABASE_URL="postgresql://postgres:password@postgres:5432/trip_planner_dev?schema=public"
+NODE_ENV=development
 ```
+
+### Development (Local)
+```env
+# .env.local (for local development)
+DATABASE_URL="postgresql://postgres:password@localhost:5433/trip_planner_dev?schema=public"
+NODE_ENV=development
+```
+
+### Testing
+```env
+# .env.test (for running tests)
+DATABASE_URL="postgresql://postgres:password@localhost:5433/trip_planner_dev?schema=public"
+NODE_ENV=test
+```
+
+### Production
+```env
+# Production environment
+DATABASE_URL="postgresql://user:password@host:5432/trip_planner_prod?schema=public"
+NODE_ENV=production
+```
+
+### Prisma Configuration
+The Prisma client is generated to `dist/generated/prisma` to match the TypeScript build output structure.
 
 ## Migration Files
 

@@ -1,15 +1,83 @@
-# React + TypeScript + Vite
+# Trip Planner Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React TypeScript frontend for the Group Trip Planner application, built with Vite for fast development and optimized builds.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React 18** with TypeScript for type-safe component development
+- **Vite** for lightning-fast development and optimized production builds
+- **Tailwind CSS** for utility-first styling
+- **React Router** for client-side routing
+- **React Query** for server state management and API integration
+- **Vitest** for unit and integration testing
+- **ESLint + Prettier** for code quality and formatting
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Trip Management**: Create, view, and manage group trips
+- **Participant Management**: Add and manage trip participants
+- **Responsive Design**: Mobile-first responsive UI
+- **Real-time Updates**: Optimistic updates with React Query
+- **Type Safety**: Full TypeScript integration
+- **Modern Development**: Hot module replacement and fast refresh
+
+## API Integration
+
+The frontend integrates with the Trip Planner API backend:
+
+### Backend API Endpoints
+- `POST /api/trips` - Create new trips
+- `GET /api/trips/:id` - Get trip details
+- `PUT /api/trips/:id` - Update trip information
+- `POST /api/trips/:id/participants` - Add participants
+- `DELETE /api/trips/:id/participants/:id` - Remove participants
+
+### Authentication
+All API requests include authentication via the `X-User-Id` header. The frontend manages user sessions and ensures proper authorization for trip access.
+
+## Development Setup
+
+### Prerequisites
+- Node.js 20+ and npm
+- Backend API running on port 3001
+
+### Installation
+```bash
+cd frontend
+npm install
+```
+
+### Development Server
+```bash
+npm run dev
+```
+The frontend will be available at http://localhost:5173
+
+### Building for Production
+```bash
+npm run build
+```
+
+### Testing
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Code Quality
+```bash
+# Lint code
+npm run lint
+
+# Format code
+npm run format
+```
 
 ## Expanding the ESLint configuration
 

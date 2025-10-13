@@ -179,41 +179,77 @@ npm run format
 
 ## API Endpoints
 
-The backend provides the following API endpoints:
+The backend provides a comprehensive REST API for trip management:
 
-### Core Endpoints
-- `GET /health` - Health check with database status
-- `GET /api/trips` - **NEW!** List all trips with pagination
-- `POST /api/trips` - Create a new trip
-- `GET /api/trips/:id` - Get detailed trip information
-- `PUT /api/trips/:id/status` - **NEW!** Update trip status
-- `DELETE /api/trips/:id` - **NEW!** Delete a trip
-- `GET /api/trips/:id/stats` - **NEW!** Get trip statistics
+### Trip Management
+- `POST /api/trips` - Create a new trip with validation
+- `GET /api/trips/:id` - Get trip details with authorization
+- `PUT /api/trips/:id` - Update trip name and status
+- `DELETE /api/trips/:id` - Delete a trip (organizer only)
 
-### Trip Data Endpoints
-- `GET /api/trips/:id/recommendations` - Get AI recommendations
-- `GET /api/trips/:id/results` - Get voting results
+### Participant Management
+- `POST /api/trips/:id/participants` - Add participants to trip
+- `GET /api/trips/:id/participants` - List all trip participants
+- `DELETE /api/trips/:id/participants/:participantId` - Remove participant
 
-### Legacy Endpoints (To be implemented)
-- `POST /api/trips/:id/participants` - Add participants
-- `POST /api/trips/:id/preferences` - Set participant preferences
-- `POST /api/trips/:id/votes` - Submit votes
+### System Endpoints
+- `GET /health` - Health check with database connectivity status
+
+### Authentication
+All endpoints require authentication via `X-User-Id` header with a valid UUID. Only trip organizers can modify trips and manage participants.
 
 ### Quick API Test
 ```bash
-# List all trips
-curl http://localhost:3001/api/trips
+# Health check
+curl http://localhost:3001/health
 
-# Get specific trip details
-curl http://localhost:3001/api/trips/TRIP_ID
-
-# Create new trip
+# Create new trip (requires authentication)
 curl -X POST http://localhost:3001/api/trips \
   -H "Content-Type: application/json" \
-  -d '{"name":"My Trip","organizerId":"user-123"}'
+  -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -d '{"name":"Trip to Tokyo"}'
+
+# Get trip details
+curl -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  http://localhost:3001/api/trips/TRIP_ID
+
+# Add participant
+curl -X POST http://localhost:3001/api/trips/TRIP_ID/participants \
+  -H "Content-Type: application/json" \
+  -H "X-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -d '{"name":"John Doe","phoneNumber":"+1234567890"}'
 ```
 
 For complete API documentation, see [backend/API.md](./backend/API.md).
+
+## Recent Updates
+
+### ✅ Trip Management API Implementation (Task 5)
+
+The backend now includes a complete trip management API with the following features:
+
+#### **Implemented Endpoints**
+- **POST /api/trips** - Create trips with validation and authentication
+- **GET /api/trips/:id** - Get trip details with authorization checks
+- **PUT /api/trips/:id** - Update trip name and status
+- **POST /api/trips/:id/participants** - Add participants with phone validation
+- **GET /api/trips/:id/participants** - List trip participants
+- **DELETE /api/trips/:id/participants/:id** - Remove participants
+
+#### **Key Features**
+- **Authentication**: Header-based auth with `X-User-Id` UUID validation
+- **Authorization**: Organizer-only access to trip management
+- **Input Validation**: Comprehensive Zod-based validation for all inputs
+- **Database Integration**: Full Prisma ORM with PostgreSQL
+- **Error Handling**: Proper HTTP status codes and detailed error messages
+- **Security**: Phone number validation, duplicate prevention, secure tokens
+- **Testing**: Integration tests and manual API validation
+
+#### **Architecture**
+- **Service Layer**: Clean separation with `TripService` for business logic
+- **Middleware**: Authentication and validation middleware
+- **Database**: Retry logic, error handling, and connection management
+- **Containerization**: Full Docker support for development and production
 
 ## Development Notes
 

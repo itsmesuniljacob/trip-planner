@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { z } from 'zod';
 import { tripService } from '../services/tripService.js';
+import { surveyService } from '../services/surveyService.js';
 import { AuthenticatedRequest, authenticateUser } from '../middleware/auth.js';
 import { validateBody, validateParams } from '../middleware/validation.js';
 import { CreateTripSchema, UpdateTripSchema } from '../models/trip.js';
@@ -316,6 +317,108 @@ router.get(
       console.error('Error fetching participants:', error);
       res.status(500).json({
         error: 'Failed to fetch participants',
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/trips/:id/surveys/send
+ * Send survey invitations to all participants
+ */
+router.post(
+  '/:id/surveys/send',
+  authenticateUser,
+  validateParams(TripIdParamsSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+
+      // Check if trip exists and user is organizer
+      const trip = await tripService.getTripById(id, false);
+      
+      if (!trip) {
+        return res.status(404).json({
+          error: 'Trip not found',
+          message: 'The requested trip does not exist',
+        });
+      }
+
+      if (trip.organizerId !== userId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not authorized to send surveys for this trip',
+        });
+      }
+
+      // Send survey invitations
+      const result = await surveyService.sendSurveyInvitations(id);
+
+      res.json({
+        success: true,
+        data: result,
+        message: `Survey invitations sent to ${result.sent} participants`,
+      });
+    } catch (error: any) {
+      console.error('Error sending survey invitations:', error);
+      res.status(500).json({
+        error: 'Failed to send survey invitations',
+        message: error.message || 'Internal server error',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/trips/:id/survey-status
+ * Get survey completion status for a trip
+ */
+router.get(
+  '/:id/survey-status',
+  authenticateUser,
+  validateParams(TripIdParamsSchema),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.id;
+
+      // Check if trip exists and user is organizer
+      const trip = await tripService.getTripById(id, false);
+      
+      if (!trip) {
+        return res.status(404).json({
+          error: 'Trip not found',
+          message: 'The requested trip does not exist',
+        });
+      }
+
+      if (trip.organizerId !== userId) {
+        return res.status(403).json({
+          error: 'Access denied',
+          message: 'You are not authorized to view survey status for this trip',
+        });
+      }
+
+      // Get survey status
+      const status = await surveyService.getSurveyStatus(id);
+      const allCompleted = await surveyService.areAllSurveysCompleted(id);
+
+      res.json({
+        success: true,
+        data: {
+          ...status,
+          allCompleted,
+          completionPercentage: status.totalParticipants > 0 
+            ? Math.round((status.completedSurveys / status.totalParticipants) * 100)
+            : 0,
+        },
+      });
+    } catch (error: any) {
+      console.error('Error fetching survey status:', error);
+      res.status(500).json({
+        error: 'Failed to fetch survey status',
         message: error.message || 'Internal server error',
       });
     }

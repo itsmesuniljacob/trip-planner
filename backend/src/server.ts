@@ -4,8 +4,9 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { connectDatabase, testDatabaseConnection } from './lib/database.js';
 import tripsRouter from './routes/trips.js';
+import surveysRouter from './routes/surveys.js';
 
-const app = express();
+export const app = express();
 
 // Middleware
 app.use(helmet());
@@ -25,6 +26,7 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // API routes
 app.use('/api/trips', tripsRouter);
+app.use('/api/surveys', surveysRouter);
 
 // 404 handler
 app.use((req: Request, res: Response, next: NextFunction) => {

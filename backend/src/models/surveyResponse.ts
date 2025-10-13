@@ -51,9 +51,12 @@ export const BudgetRangeSchema = z.object({
 export const DateFlexibilitySchema = z.enum(['fixed', 'flexible', 'very-flexible']);
 
 export const AvailableDatesSchema = z.object({
-  startDate: z.date()
-    .min(new Date(), 'Start date must be in the future'),
-  endDate: z.date(),
+  startDate: z.string()
+    .datetime('Start date must be a valid ISO datetime')
+    .transform((str) => new Date(str)),
+  endDate: z.string()
+    .datetime('End date must be a valid ISO datetime')
+    .transform((str) => new Date(str)),
   flexibility: DateFlexibilitySchema
 }).refine(data => data.endDate >= data.startDate, {
   message: 'End date must be after or equal to start date',

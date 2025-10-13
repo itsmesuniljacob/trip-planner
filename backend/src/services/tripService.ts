@@ -9,7 +9,7 @@ const prisma = getPrismaClient();
 /**
  * Generate secure tokens for survey and voting links
  */
-function generateSecureToken(): string {
+export function generateSecureToken(): string {
   return randomBytes(32).toString('hex');
 }
 
